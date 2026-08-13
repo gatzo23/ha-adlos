@@ -99,9 +99,10 @@ class AdlosNotificationService(BaseNotificationService):
     def __init__(self, hass: HomeAssistant, entry_data: dict):
         """Initialize the service."""
         self.hass = hass
-        self.public_url = entry_data.get(CONF_PUBLIC_URL, "")
-        self.webhook_id = entry_data.get(CONF_WEBHOOK_ID, "")
-        self.secret_token = entry_data.get(CONF_SECRET_TOKEN, "")
+        self.entry_id = entry_data.get("entry_id", "") if isinstance(entry_data, dict) else ""
+        self.public_url = entry_data.get(CONF_PUBLIC_URL, "") if isinstance(entry_data, dict) else ""
+        self.webhook_id = entry_data.get(CONF_WEBHOOK_ID, "") if isinstance(entry_data, dict) else ""
+        self.secret_token = entry_data.get(CONF_SECRET_TOKEN, "") if isinstance(entry_data, dict) else ""
 
     async def async_send_message(self, message: str = "", **kwargs) -> None:
         """Send a notification message to Adlos via REST API."""
@@ -198,8 +199,9 @@ class AdlosNotificationService(BaseNotificationService):
         self.hass.bus.async_fire("adlos_notification_sent", payload)
 
         # 2. Add to in-memory queue & broadcast to SSE subscribers for real-time delivery to Adlos App
+        target_entry_id = getattr(self, "entry_id", None)
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.entry_id == self.entry_id:
+            if not target_entry_id or entry.entry_id == target_entry_id:
                 store = self.hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})
                 if "messages" in store:
                     store["messages"].append(payload)
