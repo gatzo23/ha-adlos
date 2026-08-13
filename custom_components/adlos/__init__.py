@@ -219,13 +219,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         return web.json_response({"error": "Method Not Allowed"}, status=405)
 
-    # Register Webhook with HA Webhook component
+    # Register Webhook with HA Webhook component (allowing GET for SSE/Polling and OPTIONS for CORS)
     webhook.async_register(
         hass,
         DOMAIN,
         "Adlos Integration",
         webhook_id,
         async_handle_webhook,
+        allowed_methods=["GET", "POST", "PUT", "HEAD", "OPTIONS"],
     )
     _LOGGER.info("Registered Adlos webhook endpoint: /api/webhook/%s", webhook_id)
 
