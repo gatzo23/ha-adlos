@@ -48,18 +48,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "messages": [],
     }
 
-    # Register direct action/service adlos.send_message
+    # Register direct action/service adlos.send_message & notify.adlos
     async def async_handle_send_message(call: ServiceCall) -> None:
         """Handle adlos.send_message service call."""
         service = AdlosNotificationService(hass, entry.data)
+        msg_text = call.data.get("message") or call.data.get("text") or call.data.get("content") or call.data.get("payload") or ""
         await service.async_send_message(
-            message=call.data.get("message", ""),
+            message=msg_text,
             title=call.data.get("title"),
-            target=call.data.get("target"),
+            target=call.data.get("target") or call.data.get("room"),
             data=call.data.get("data", {}),
         )
 
     hass.services.async_register(DOMAIN, "send_message", async_handle_send_message)
+    hass.services.async_register("notify", "adlos", async_handle_send_message)
 
     # Webhook handler: supports POST (Incoming Adlos -> HA), GET (SSE / Polling notifications HA -> Adlos), OPTIONS (CORS)
     async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:

@@ -103,20 +103,25 @@ class AdlosNotificationService(BaseNotificationService):
         self.secret_token = entry_data.get(CONF_SECRET_TOKEN, "")
 
     async def async_send_message(self, message: str = "", **kwargs) -> None:
-        """Send a notification message to Adlos."""
+        """Send a notification message to Adlos via REST API."""
         title = kwargs.get(ATTR_TITLE)
         targets = kwargs.get(ATTR_TARGET)
         data = kwargs.get(ATTR_DATA) or {}
 
-        # Normalize targets
+        # Normalize targets / room
         target_list = None
         if isinstance(targets, str):
             target_list = [targets]
         elif isinstance(targets, list):
             target_list = targets
 
-        # Build payload with redundant key aliases (message, text, body) for 100% app compatibility
+        room_id = data.get("room") or (target_list[0] if target_list else "homeassistant_bot")
+
+        # Build payload with all redundant key aliases (room, sender, text, message, body) for 100% app & PocketBase compatibility
         payload = {
+            "room": room_id,
+            "sender": "Home Assistant",
+            "type": "text",
             "title": title or "Home Assistant",
             "message": message,
             "text": message,
@@ -225,13 +230,26 @@ class AdlosNotificationService(BaseNotificationService):
                             except Exception as err:
                                 _LOGGER.debug("Error writing to SSE subscriber: %s", err)
 
-        # 3. If a public push server URL is configured, POST payload to Adlos push gateway
-        if self.public_url and self.public_url.startswith(("http://", "https://")):
-            session = async_get_clientsession(self.hass)
-            target_url = f"{self.public_url}/api/adlos/push"
-            try:
-                async with session.post(target_url, json=payload, timeout=10) as resp:
-                    if resp.status not in (200, 201, 204):
-                        _LOGGER.warning("Adlos push gateway status: %s", resp.status)
-            except Exception as err:
-                _LOGGER.debug("Adlos push gateway notice: %s", err)
+        # 3. Post REST payload directly to PocketBase / REST push gateway endpoint
+        session = async_get_clientsession(self.hass)
+        base_url = self.public_url or "http://192.168.178.74:8090"
+        if "records" in base_url:
+            target_url = base_url
+        elif base_url.startswith(("http://", "https://")):
+            target_url = f"{base_url.rstrip('/')}/api/collections/messages/records"
+        else:
+            target_url = "http://192.168.178.74:8090/api/collections/messages/records"
+
+        headers = {"Content-Type": "application/json"}
+        if self.secret_token:
+            headers["Authorization"] = f"Bearer {self.secret_token}"
+
+        try:
+            async with session.post(target_url, json=payload, headers=headers, timeout=10) as resp:
+                if resp.status in (200, 201, 204):
+                    _LOGGER.info("Adlos REST push successfully posted to %s", target_url)
+                else:
+                    _LOGGER.warning("Adlos REST push gateway returned status %s from %s", resp.status, target_url)
+        except Exception as err:
+            _LOGGER.error("Adlos REST push gateway error posting to %s: %s", target_url, err)
+
