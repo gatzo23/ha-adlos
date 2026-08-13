@@ -98,7 +98,7 @@ class AdlosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         qr_data_uri = generate_qr_data_uri(self._pairing_uri)
-        qr_img_html = f'<p align="center"><img src="{qr_data_uri}" width="220" height="220" style="border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15);" /></p>'
+        qr_img_html = f'<p align="center"><img src="{qr_data_uri}" width="260" height="260" style="border-radius:12px; background:#ffffff; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.2);" /></p>'
 
         return self.async_show_form(
             step_id="qr_code",
@@ -145,7 +145,7 @@ class AdlosOptionsFlowHandler(config_entries.OptionsFlow):
         }
         pairing_uri = f"adlos://connect?{urllib.parse.urlencode(params)}"
         qr_data_uri = generate_qr_data_uri(pairing_uri)
-        qr_img_html = f'<p align="center"><img src="{qr_data_uri}" width="220" height="220" style="border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15);" /></p>'
+        qr_img_html = f'<p align="center"><img src="{qr_data_uri}" width="260" height="260" style="border-radius:12px; background:#ffffff; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.2);" /></p>'
 
         return self.async_show_form(
             step_id="init",
