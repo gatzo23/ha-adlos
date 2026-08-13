@@ -1,0 +1,39 @@
+# Service definitions for Adlos Home Assistant Integration
+
+send_message:
+  name: Send message via Adlos
+  description: Sends a notification message or camera image to the Adlos App.
+  fields:
+    message:
+      name: Message
+      description: The main message text to send.
+      required: true
+      example: "Die Waschmaschine ist fertig!"
+      selector:
+        text:
+          multiline: true
+    title:
+      name: Title
+      description: Optional title for the notification.
+      required: false
+      example: "Haushalt"
+      selector:
+        text:
+
+    target:
+      name: Target / Recipient
+      description: Optional recipient, room, or target group name.
+      required: false
+      example: "Wohnzimmer"
+      selector:
+        text:
+
+    data:
+      name: Data & Attachments
+      description: Optional payload for photo, video, or camera entity snapshots.
+      required: false
+      example:
+        image: "/config/www/snapshot.jpg"
+        camera: "camera.front_door"
+      selector:
+        object:

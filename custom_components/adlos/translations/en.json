@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Adlos Integration",
+        "description": "Establish a direct 2-way messaging link between your Adlos App and Home Assistant.",
+        "data": {
+          "channel_name": "Channel Name in Adlos (e.g. Home Assistant)",
+          "public_url": "Public Home Assistant URL (e.g. https://your-ha.duckdns.org)"
+        }
+      },
+      "qr_code": {
+        "title": "Connect via QR Code",
+        "description": "Open the Adlos app on your phone and scan this QR code:\n\n{qr_code_img}\n\nThe **{channel_name}** chat will open instantly in your Adlos app!\n\n**Connection URI:**\n`{pairing_uri}`"
+      }
+    },
+    "abort": {
+      "already_configured": "Adlos is already configured in Home Assistant."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Adlos QR Code & Credentials",
+        "description": "Scan this QR code with the Adlos App on another device:\n\n{qr_code_img}\n\n**Connection URI:**\n`{pairing_uri}`\n\n**Webhook ID:** `{webhook_id}`"
+      }
+    }
+  }
+}

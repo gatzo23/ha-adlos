@@ -1,0 +1,13 @@
+{
+  "domain": "adlos",
+  "name": "Adlos",
+  "codeowners": ["@gatzo23"],
+  "config_flow": true,
+  "dependencies": ["webhook", "conversation"],
+  "documentation": "https://github.com/gatzo23/ha-adlos",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/gatzo23/ha-adlos/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
