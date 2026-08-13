@@ -52,12 +52,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def async_handle_send_message(call: ServiceCall) -> None:
         """Handle adlos.send_message service call."""
         service = AdlosNotificationService(hass, entry.data)
-        msg_text = call.data.get("message") or call.data.get("text") or call.data.get("content") or call.data.get("payload") or ""
+        data = call.data
+        extra_data = data.get("data") if isinstance(data.get("data"), dict) else {}
+
+        raw_text = (
+            data.get("message")
+            or data.get("text")
+            or data.get("content")
+            or data.get("payload")
+            or extra_data.get("message")
+            or extra_data.get("text")
+            or ""
+        )
+
+        title = data.get("title") or extra_data.get("title")
+        if title and raw_text and not raw_text.startswith(title):
+            msg_text = f"{title}\n{raw_text}"
+        elif title and not raw_text:
+            msg_text = str(title)
+        else:
+            msg_text = str(raw_text)
+
+        target = data.get("room") or data.get("target") or extra_data.get("room") or extra_data.get("target")
         await service.async_send_message(
             message=msg_text,
-            title=call.data.get("title"),
-            target=call.data.get("target") or call.data.get("room"),
-            data=call.data.get("data", {}),
+            title=title,
+            target=target,
+            data=data,
         )
 
     hass.services.async_register(DOMAIN, "send_message", async_handle_send_message)
