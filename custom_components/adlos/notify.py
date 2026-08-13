@@ -232,13 +232,20 @@ class AdlosNotificationService(BaseNotificationService):
 
         # 3. Post REST payload directly to PocketBase / REST push gateway endpoint
         session = async_get_clientsession(self.hass)
-        base_url = self.public_url or "http://192.168.178.74:8090"
+        raw_base_url = (self.public_url or "").strip()
+
+        # If public_url is the HA server domain (beeserver.org), map to PocketBase domain pocket.nextbee.org
+        if "beeserver.org" in raw_base_url and "pocket" not in raw_base_url:
+            base_url = "https://pocket.nextbee.org"
+        else:
+            base_url = raw_base_url or "https://pocket.nextbee.org"
+
         if "records" in base_url:
             target_url = base_url
         elif base_url.startswith(("http://", "https://")):
             target_url = f"{base_url.rstrip('/')}/api/collections/messages/records"
         else:
-            target_url = "http://192.168.178.74:8090/api/collections/messages/records"
+            target_url = "https://pocket.nextbee.org/api/collections/messages/records"
 
         headers = {"Content-Type": "application/json"}
         if self.secret_token:
@@ -246,13 +253,28 @@ class AdlosNotificationService(BaseNotificationService):
 
         _LOGGER.warning("ADLOS_REST: Sending message to %s (room=%s): %s", target_url, room_id, message)
 
-        try:
-            async with session.post(target_url, json=payload, headers=headers, timeout=10) as resp:
-                resp_body = await resp.text()
-                if resp.status in (200, 201, 204):
-                    _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s): %s", resp.status, resp_body)
-                else:
-                    _LOGGER.error("ADLOS_REST ERROR (HTTP %s): %s", resp.status, resp_body)
-        except Exception as err:
-            _LOGGER.error("ADLOS_REST EXCEPTION posting to %s: %s", target_url, err)
+        candidate_urls = [
+            target_url,
+            "https://pocket.nextbee.org/api/collections/messages/records",
+            "http://192.168.178.74:8090/api/collections/messages/records",
+        ]
+        # Remove duplicates preserving order
+        candidate_urls = list(dict.fromkeys(candidate_urls))
+
+        success = False
+        for url in candidate_urls:
+            try:
+                async with session.post(url, json=payload, headers=headers, timeout=10) as resp:
+                    resp_body = await resp.text()
+                    if resp.status in (200, 201, 204):
+                        _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s) via %s: %s", resp.status, url, resp_body)
+                        success = True
+                        break
+                    else:
+                        _LOGGER.error("ADLOS_REST ERROR (HTTP %s) via %s: %s", resp.status, url, resp_body)
+            except Exception as err:
+                _LOGGER.error("ADLOS_REST EXCEPTION posting to %s: %s", url, err)
+
+        if not success:
+            _LOGGER.error("ADLOS_REST: Failed to post message to all candidate URLs: %s", candidate_urls)
 
