@@ -82,6 +82,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     hass.services.async_register(DOMAIN, "send_message", async_handle_send_message)
+    hass.services.async_register(DOMAIN, "send_photo", async_handle_send_message)
+    hass.services.async_register("adlos", "send_photo", async_handle_send_message)
     hass.services.async_register("notify", "adlos", async_handle_send_message)
 
     # Webhook handler: supports POST (Incoming Adlos -> HA), GET (SSE / Polling notifications HA -> Adlos), OPTIONS (CORS)

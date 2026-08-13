@@ -2,10 +2,10 @@
 
 send_message:
   name: Send message via Adlos
-  description: Sends a notification message or camera image to the Adlos App.
+  description: Sends a notification text message or photo/camera image to the Adlos App.
   fields:
     message:
-      name: Message
+      name: Message / Text
       description: The main message text to send.
       required: true
       example: "Die Waschmaschine ist fertig!"
@@ -19,21 +19,57 @@ send_message:
       example: "Haushalt"
       selector:
         text:
-
-    target:
-      name: Target / Recipient
-      description: Optional recipient, room, or target group name.
+    image:
+      name: Image / Photo Path
+      description: Optional local path to an image file (e.g. /config/www/snapshot.jpg).
       required: false
-      example: "Wohnzimmer"
+      example: "/config/www/snapshot.jpg"
       selector:
         text:
-
-    data:
-      name: Data & Attachments
-      description: Optional payload for photo, video, or camera entity snapshots.
+    target:
+      name: Target / Recipient (Room)
+      description: Optional recipient or room name (e.g. homeassistant_bot).
       required: false
-      example:
-        image: "/config/www/snapshot.jpg"
-        camera: "camera.front_door"
+      example: "homeassistant_bot"
+      selector:
+        text:
+    data:
+      name: Extra Data
+      description: Additional key-value options if needed.
+      required: false
       selector:
         object:
+
+send_photo:
+  name: Send photo via Adlos
+  description: Sends a photo image file with an optional message/caption to the Adlos App.
+  fields:
+    message:
+      name: Caption / Text
+      description: Optional text message or caption for the photo.
+      required: false
+      example: "Bewegung an der Auffahrt"
+      selector:
+        text:
+          multiline: true
+    title:
+      name: Title
+      description: Optional title for the photo.
+      required: false
+      example: "Kamera Auffahrt"
+      selector:
+        text:
+    path:
+      name: Image File Path
+      description: Local path to the image file on Home Assistant (e.g. /config/www/snapshot.jpg).
+      required: true
+      example: "/config/www/snapshot.jpg"
+      selector:
+        text:
+    target:
+      name: Target / Recipient (Room)
+      description: Optional recipient or room name (e.g. homeassistant_bot).
+      required: false
+      example: "homeassistant_bot"
+      selector:
+        text:
