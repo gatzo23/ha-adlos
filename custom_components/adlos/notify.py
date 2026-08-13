@@ -115,11 +115,14 @@ class AdlosNotificationService(BaseNotificationService):
         elif isinstance(targets, list):
             target_list = targets
 
-        # Build payload
+        # Build payload with redundant key aliases (message, text, body) for 100% app compatibility
         payload = {
             "title": title or "Home Assistant",
             "message": message,
+            "text": message,
+            "body": message,
             "targets": target_list,
+            "target": targets,
             "token": self.secret_token,
             "webhook_id": self.webhook_id,
             "timestamp": asyncio.get_event_loop().time(),
@@ -143,6 +146,7 @@ class AdlosNotificationService(BaseNotificationService):
                             "data_base64": b64_img,
                             "source": f"camera:{camera_entity}",
                         }
+                        payload["image"] = payload["attachment"]
             except Exception as err:
                 _LOGGER.error("Failed to capture snapshot from camera %s: %s", camera_entity, err)
 
@@ -152,6 +156,7 @@ class AdlosNotificationService(BaseNotificationService):
                     "type": "image",
                     "url": image_path_or_url,
                 }
+                payload["image"] = payload["attachment"]
             elif os.path.exists(image_path_or_url):
                 try:
                     with open(image_path_or_url, "rb") as img_file:
@@ -162,6 +167,7 @@ class AdlosNotificationService(BaseNotificationService):
                             "data_base64": b64_img,
                             "filename": os.path.basename(image_path_or_url),
                         }
+                        payload["image"] = payload["attachment"]
                 except Exception as err:
                     _LOGGER.error("Failed to read image file %s: %s", image_path_or_url, err)
 
@@ -171,6 +177,7 @@ class AdlosNotificationService(BaseNotificationService):
                     "type": "video",
                     "url": video_path_or_url,
                 }
+                payload["video"] = payload["attachment"]
             elif os.path.exists(video_path_or_url):
                 try:
                     with open(video_path_or_url, "rb") as vid_file:
@@ -181,6 +188,7 @@ class AdlosNotificationService(BaseNotificationService):
                             "data_base64": b64_vid,
                             "filename": os.path.basename(video_path_or_url),
                         }
+                        payload["video"] = payload["attachment"]
                 except Exception as err:
                     _LOGGER.error("Failed to read video file %s: %s", video_path_or_url, err)
 
