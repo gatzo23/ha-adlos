@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import json
 import logging
 import os
 import aiohttp
@@ -183,7 +184,6 @@ class AdlosNotificationService(BaseNotificationService):
                 except Exception as err:
                     _LOGGER.error("Failed to read video file %s: %s", video_path_or_url, err)
 
-        # Include custom actions/buttons if specified
         if "actions" in data:
             payload["actions"] = data["actions"]
 
@@ -194,16 +194,36 @@ class AdlosNotificationService(BaseNotificationService):
             "yes" if "attachment" in payload else "no",
         )
 
-        # Fire HA event for local notification listeners or websockets
+        # 1. Fire HA event for local notification listeners or websockets
         self.hass.bus.async_fire("adlos_notification_sent", payload)
 
-        # If a public webhook/push server URL is configured, POST payload to Adlos push gateway
+        # 2. Add to in-memory queue & broadcast to SSE subscribers for real-time delivery to Adlos App
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get(CONF_WEBHOOK_ID) == self.webhook_id:
+                store = self.hass.data.get(DOMAIN, {}).get(entry.entry_id)
+                if store:
+                    # Append message to polling queue (max 50)
+                    store["messages"].append(payload)
+                    if len(store["messages"]) > 50:
+                        store["messages"].pop(0)
+
+                    # Real-time SSE broadcast
+                    subscribers = list(store.get("subscribers", []))
+                    if subscribers:
+                        sse_data = f"data: {json.dumps(payload)}\n\n".encode("utf-8")
+                        for resp in subscribers:
+                            try:
+                                asyncio.create_task(resp.write(sse_data))
+                            except Exception as err:
+                                _LOGGER.debug("Error writing to SSE subscriber: %s", err)
+
+        # 3. If a public push server URL is configured, POST payload to Adlos push gateway
         if self.public_url and self.public_url.startswith(("http://", "https://")):
             session = async_get_clientsession(self.hass)
             target_url = f"{self.public_url}/api/adlos/push"
             try:
                 async with session.post(target_url, json=payload, timeout=10) as resp:
                     if resp.status not in (200, 201, 204):
-                        _LOGGER.warning("Adlos push gateway returned status code %s", resp.status)
+                        _LOGGER.warning("Adlos push gateway status: %s", resp.status)
             except Exception as err:
-                _LOGGER.debug("Adlos push gateway notice (non-fatal): %s", err)
+                _LOGGER.debug("Adlos push gateway notice: %s", err)
