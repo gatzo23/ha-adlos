@@ -135,7 +135,13 @@ class AdlosNotificationService(BaseNotificationService):
         }
 
         # Handle Photo/Image attachments (URL, local file path, or base64)
-        image_path_or_url = data.get(ATTR_IMAGE) or data.get(ATTR_PHOTO)
+        image_path_or_url = (
+            data.get(ATTR_IMAGE)
+            or data.get(ATTR_PHOTO)
+            or data.get("path")
+            or data.get("file_path")
+            or data.get("file")
+        )
         video_path_or_url = data.get(ATTR_VIDEO)
         camera_entity = data.get(ATTR_CAMERA)
 
@@ -156,26 +162,13 @@ class AdlosNotificationService(BaseNotificationService):
             except Exception as err:
                 _LOGGER.error("Failed to capture snapshot from camera %s: %s", camera_entity, err)
 
-        elif image_path_or_url:
+        elif image_path_or_url and isinstance(image_path_or_url, str) and not os.path.exists(image_path_or_url):
             if image_path_or_url.startswith(("http://", "https://")):
                 payload["attachment"] = {
                     "type": "image",
                     "url": image_path_or_url,
                 }
                 payload["image"] = payload["attachment"]
-            elif os.path.exists(image_path_or_url):
-                try:
-                    with open(image_path_or_url, "rb") as img_file:
-                        b64_img = base64.b64encode(img_file.read()).decode("utf-8")
-                        payload["attachment"] = {
-                            "type": "image",
-                            "mime_type": "image/jpeg",
-                            "data_base64": b64_img,
-                            "filename": os.path.basename(image_path_or_url),
-                        }
-                        payload["image"] = payload["attachment"]
-                except Exception as err:
-                    _LOGGER.error("Failed to read image file %s: %s", image_path_or_url, err)
 
         elif video_path_or_url:
             if video_path_or_url.startswith(("http://", "https://")):
@@ -201,22 +194,14 @@ class AdlosNotificationService(BaseNotificationService):
         if "actions" in data:
             payload["actions"] = data["actions"]
 
-        _LOGGER.info(
-            "Adlos Notification queued for targets %s: %s (Attachment: %s)",
-            target_list,
-            message,
-            "yes" if "attachment" in payload else "no",
-        )
-
         # 1. Fire HA event for local notification listeners or websockets
         self.hass.bus.async_fire("adlos_notification_sent", payload)
 
         # 2. Add to in-memory queue & broadcast to SSE subscribers for real-time delivery to Adlos App
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get(CONF_WEBHOOK_ID) == self.webhook_id:
-                store = self.hass.data.get(DOMAIN, {}).get(entry.entry_id)
-                if store:
-                    # Append message to polling queue (max 50)
+            if entry.entry_id == self.entry_id:
+                store = self.hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})
+                if "messages" in store:
                     store["messages"].append(payload)
                     if len(store["messages"]) > 50:
                         store["messages"].pop(0)
@@ -248,12 +233,6 @@ class AdlosNotificationService(BaseNotificationService):
         else:
             target_url = "https://pocket.nextbee.org/api/collections/messages/records"
 
-        headers = {"Content-Type": "application/json"}
-        if self.secret_token:
-            headers["Authorization"] = f"Bearer {self.secret_token}"
-
-        _LOGGER.warning("ADLOS_REST: Sending message to %s (room=%s): %s", target_url, room_id, message)
-
         candidate_urls = [
             target_url,
             "https://pocket.nextbee.org/api/collections/messages/records",
@@ -262,20 +241,54 @@ class AdlosNotificationService(BaseNotificationService):
         # Remove duplicates preserving order
         candidate_urls = list(dict.fromkeys(candidate_urls))
 
+        headers = {}
+        if self.secret_token:
+            headers["Authorization"] = f"Bearer {self.secret_token}"
+
         success = False
-        for url in candidate_urls:
-            try:
-                async with session.post(url, json=payload, headers=headers, timeout=10) as resp:
-                    resp_body = await resp.text()
-                    if resp.status in (200, 201, 204):
-                        _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s) via %s: %s", resp.status, url, resp_body)
-                        success = True
-                        break
-                    else:
-                        _LOGGER.error("ADLOS_REST ERROR (HTTP %s) via %s: %s", resp.status, url, resp_body)
-            except Exception as err:
-                _LOGGER.error("ADLOS_REST EXCEPTION posting to %s: %s", url, err)
+
+        # If local image file exists, post via FormData multipart file upload
+        if image_path_or_url and isinstance(image_path_or_url, str) and os.path.exists(image_path_or_url):
+            text_val = f"{title}\n{message}" if title else message
+            _LOGGER.warning("ADLOS_REST: Sending photo to candidate URLs (room=%s, file=%s): %s", room_id, image_path_or_url, text_val)
+
+            for url in candidate_urls:
+                try:
+                    form_data = aiohttp.FormData()
+                    form_data.add_field("text", text_val)
+                    form_data.add_field("sender", "Home Assistant")
+                    form_data.add_field("room", room_id)
+                    form_data.add_field("type", "image")
+
+                    with open(image_path_or_url, "rb") as f:
+                        form_data.add_field("file", f, filename=os.path.basename(image_path_or_url))
+
+                        async with session.post(url, data=form_data, headers=headers, timeout=15) as resp:
+                            resp_body = await resp.text()
+                            if resp.status in (200, 201, 204):
+                                _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s) via %s: %s", resp.status, url, resp_body)
+                                success = True
+                                break
+                            else:
+                                _LOGGER.error("ADLOS_REST ERROR (HTTP %s) via %s: %s", resp.status, url, resp_body)
+                except Exception as err:
+                    _LOGGER.error("ADLOS_REST EXCEPTION posting photo to %s: %s", url, err)
+        else:
+            headers["Content-Type"] = "application/json"
+            _LOGGER.warning("ADLOS_REST: Sending message to candidate URLs (room=%s): %s", room_id, message)
+
+            for url in candidate_urls:
+                try:
+                    async with session.post(url, json=payload, headers=headers, timeout=10) as resp:
+                        resp_body = await resp.text()
+                        if resp.status in (200, 201, 204):
+                            _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s) via %s: %s", resp.status, url, resp_body)
+                            success = True
+                            break
+                        else:
+                            _LOGGER.error("ADLOS_REST ERROR (HTTP %s) via %s: %s", resp.status, url, resp_body)
+                except Exception as err:
+                    _LOGGER.error("ADLOS_REST EXCEPTION posting to %s: %s", url, err)
 
         if not success:
             _LOGGER.error("ADLOS_REST: Failed to post message to all candidate URLs: %s", candidate_urls)
-
