@@ -61,10 +61,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, "send_message", async_handle_send_message)
 
-    # Webhook handler: supports POST (Incoming Adlos -> HA), GET (SSE / Polling notifications HA -> Adlos)
+    # Webhook handler: supports POST (Incoming Adlos -> HA), GET (SSE / Polling notifications HA -> Adlos), OPTIONS (CORS)
     async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         """Handle incoming webhook requests from Adlos."""
-        # 1. Check Authentication Token
+        # Handle CORS OPTIONS Preflight
+        if request.method == "OPTIONS":
+            return web.Response(
+                status=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, X-Adlos-Token, Authorization",
+                },
+            )
+
+        # Check Authentication Token
         provided_token = (
             request.headers.get("X-Adlos-Token")
             or request.query.get("token")
@@ -130,7 +141,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "status": "ok",
                     "response": response_text,
                     "received_message": message,
-                }
+                },
+                headers={"Access-Control-Allow-Origin": "*"},
             )
 
         elif request.method == "GET":
@@ -177,7 +189,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # HTTP Polling: return pending messages and clear queue
                 messages = list(entry_store["messages"])
                 entry_store["messages"].clear()
-                return web.json_response({"messages": messages, "count": len(messages)})
+                return web.json_response(
+                    {"messages": messages, "count": len(messages)},
+                    headers={"Access-Control-Allow-Origin": "*"},
+                )
 
         return web.json_response({"error": "Method Not Allowed"}, status=405)
 
