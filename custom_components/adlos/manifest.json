@@ -9,5 +9,5 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/gatzo23/ha-adlos/issues",
   "requirements": ["qrcode>=7.4.2", "pillow>=10.0.0"],
-  "version": "1.0.11"
+  "version": "1.0.12"
 }

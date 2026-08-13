@@ -48,14 +48,15 @@ async def async_setup_entry(
 class AdlosNotifyEntity(NotifyEntity):
     """Adlos Notify Entity for modern Home Assistant UI."""
 
-    _attr_has_entity_name = True
-    _attr_name = None
+    _attr_has_entity_name = False
+    _attr_name = "Adlos"
     _attr_icon = "mdi:chat-processing-outline"
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         """Initialize the notify entity."""
         self.hass = hass
         self.entry = entry
+        self.entity_id = "notify.adlos"
         self._attr_unique_id = f"{DOMAIN}_notify_{entry.entry_id}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
