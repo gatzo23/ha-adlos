@@ -5,7 +5,7 @@ from aiohttp import web
 
 from homeassistant.components import conversation, webhook
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -16,6 +16,7 @@ from .const import (
     DOMAIN,
     EVENT_ADLOS_COMMAND,
 )
+from .notify import AdlosNotificationService
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_PUBLIC_URL: entry.data.get(CONF_PUBLIC_URL, ""),
         CONF_CHANNEL_NAME: entry.data.get(CONF_CHANNEL_NAME, "Adlos"),
     }
+
+    # Register direct action/service adlos.send_message
+    async def async_handle_send_message(call: ServiceCall) -> None:
+        """Handle adlos.send_message service call."""
+        service = AdlosNotificationService(hass, entry.data)
+        await service.async_send_message(
+            message=call.data.get("message", ""),
+            title=call.data.get("title"),
+            target=call.data.get("target"),
+            data=call.data.get("data", {}),
+        )
+
+    hass.services.async_register(DOMAIN, "send_message", async_handle_send_message)
 
     # Register webhook for two-way communication (Adlos App -> Home Assistant)
     async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
@@ -126,6 +140,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload an Adlos config entry."""
     webhook_id = entry.data[CONF_WEBHOOK_ID]
+
+    # Remove direct service
+    hass.services.async_remove(DOMAIN, "send_message")
 
     # Unregister webhook
     webhook.async_unregister(hass, webhook_id)
