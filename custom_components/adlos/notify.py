@@ -244,12 +244,15 @@ class AdlosNotificationService(BaseNotificationService):
         if self.secret_token:
             headers["Authorization"] = f"Bearer {self.secret_token}"
 
+        _LOGGER.warning("ADLOS_REST: Sending message to %s (room=%s): %s", target_url, room_id, message)
+
         try:
             async with session.post(target_url, json=payload, headers=headers, timeout=10) as resp:
+                resp_body = await resp.text()
                 if resp.status in (200, 201, 204):
-                    _LOGGER.info("Adlos REST push successfully posted to %s", target_url)
+                    _LOGGER.warning("ADLOS_REST SUCCESS (HTTP %s): %s", resp.status, resp_body)
                 else:
-                    _LOGGER.warning("Adlos REST push gateway returned status %s from %s", resp.status, target_url)
+                    _LOGGER.error("ADLOS_REST ERROR (HTTP %s): %s", resp.status, resp_body)
         except Exception as err:
-            _LOGGER.error("Adlos REST push gateway error posting to %s: %s", target_url, err)
+            _LOGGER.error("ADLOS_REST EXCEPTION posting to %s: %s", target_url, err)
 
