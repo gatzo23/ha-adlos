@@ -1,4 +1,4 @@
-"""Adlos notification service platform."""
+"""Adlos notification service & entity platform."""
 
 import asyncio
 import base64
@@ -12,9 +12,12 @@ from homeassistant.components.notify import (
     ATTR_TARGET,
     ATTR_TITLE,
     BaseNotificationService,
+    NotifyEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import (
@@ -22,6 +25,7 @@ from .const import (
     ATTR_IMAGE,
     ATTR_PHOTO,
     ATTR_VIDEO,
+    CONF_CHANNEL_NAME,
     CONF_PUBLIC_URL,
     CONF_SECRET_TOKEN,
     CONF_WEBHOOK_ID,
@@ -31,14 +35,51 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Adlos notify entity from a config entry."""
+    async_add_entities([AdlosNotifyEntity(hass, entry)], update_before_add=True)
+
+
+class AdlosNotifyEntity(NotifyEntity):
+    """Adlos Notify Entity for modern Home Assistant UI."""
+
+    _attr_has_entity_name = True
+    _attr_name = None
+    _attr_icon = "mdi:chat-processing-outline"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        """Initialize the notify entity."""
+        self.hass = hass
+        self.entry = entry
+        self._attr_unique_id = f"{DOMAIN}_notify_{entry.entry_id}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": entry.data.get(CONF_CHANNEL_NAME, "Adlos"),
+            "manufacturer": "Adlos",
+            "model": "Messaging Integration",
+            "entry_type": "service",
+        }
+        self.public_url = entry.data.get(CONF_PUBLIC_URL, "")
+        self.webhook_id = entry.data.get(CONF_WEBHOOK_ID, "")
+        self.secret_token = entry.data.get(CONF_SECRET_TOKEN, "")
+
+    async def async_send_message(self, message: str, title: str | None = None, data: dict | None = None) -> None:
+        """Send a notification message via Adlos Notify Entity."""
+        service = AdlosNotificationService(self.hass, self.entry.data)
+        await service.async_send_message(message=message, title=title, data=data)
+
+
 async def async_get_service(
     hass: HomeAssistant,
     config: ConfigType,
     discovery_info: DiscoveryInfoType = None,
 ) -> BaseNotificationService:
-    """Get the Adlos notification service."""
+    """Get legacy Adlos notification service."""
     if discovery_info is None:
-        # Service configured via notify platform in configuration.yaml or entry
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
             _LOGGER.error("No Adlos config entries found")
