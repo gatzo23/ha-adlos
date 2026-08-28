@@ -2,7 +2,7 @@
 
 send_message:
   name: Send message via Adlos
-  description: Sends a notification text message or photo/camera image to the Adlos App.
+  description: Sends a notification text message, camera snapshot, or photo/image to the Adlos App.
   fields:
     message:
       name: Message / Text
@@ -19,30 +19,26 @@ send_message:
       example: "Haushalt"
       selector:
         text:
-    image:
-      name: Image / Photo Path
-      description: Optional local path to an image file (e.g. /config/www/snapshot.jpg).
-      required: false
-      example: "/config/www/snapshot.jpg"
-      selector:
-        text:
     target:
-      name: Target / Recipient (Room)
-      description: Optional recipient or room name (e.g. homeassistant_bot).
+      name: Target / Recipient
+      description: Optional recipient name (e.g. Kai) or group.
       required: false
-      example: "homeassistant_bot"
+      example: "Kai"
       selector:
         text:
     data:
       name: Extra Data
-      description: Additional key-value options if needed.
+      description: Additional options such as camera entity or image URL.
       required: false
+      example:
+        camera: "camera.hauseingang"
+        image: "https://example.com/snapshot.jpg"
       selector:
         object:
 
 send_photo:
   name: Send photo via Adlos
-  description: Sends a photo image file with an optional message/caption to the Adlos App.
+  description: Sends a photo image file or camera snapshot with an optional message/caption to the Adlos App.
   fields:
     message:
       name: Caption / Text
@@ -60,16 +56,24 @@ send_photo:
       selector:
         text:
     path:
-      name: Image File Path
-      description: Local path to the image file on Home Assistant (e.g. /config/www/snapshot.jpg).
-      required: true
+      name: Image File Path / URL
+      description: Local path or URL to the image file on Home Assistant.
+      required: false
       example: "/config/www/snapshot.jpg"
       selector:
         text:
     target:
-      name: Target / Recipient (Room)
-      description: Optional recipient or room name (e.g. homeassistant_bot).
+      name: Target / Recipient
+      description: Optional recipient name (e.g. Kai) or group.
       required: false
-      example: "homeassistant_bot"
+      example: "Kai"
       selector:
         text:
+    data:
+      name: Extra Data
+      description: Additional options such as camera entity.
+      required: false
+      example:
+        camera: "camera.hauseingang"
+      selector:
+        object:

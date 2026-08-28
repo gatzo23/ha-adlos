@@ -73,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             msg_text = str(raw_text)
 
-        target = data.get("room") or data.get("target") or extra_data.get("room") or extra_data.get("target")
+        target = data.get("target") or extra_data.get("target")
         await service.async_send_message(
             message=msg_text,
             title=title,
@@ -193,27 +193,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await response.prepare(request)
                 await response.write(b": ping\n\n")
 
-                subscribers = entry_store["subscribers"]
+                subscribers = entry_store.setdefault("subscribers", set())
                 subscribers.add(response)
 
                 try:
-                    while not response.prepared:
-                        await asyncio.sleep(15)
-                        await response.write(b": ping\n\n")
-                    # Keep connection alive until client disconnects
+                    # Keep connection alive with periodic pings every 15s until client disconnects
                     while True:
                         await asyncio.sleep(15)
                         await response.write(b": ping\n\n")
-                except (asyncio.CancelledError, ConnectionResetError, Exception):
+                except (asyncio.CancelledError, ConnectionResetError):
                     pass
+                except Exception as err:
+                    _LOGGER.debug("SSE stream closed: %s", err)
                 finally:
                     subscribers.discard(response)
                 return response
 
             else:
-                # HTTP Polling: return pending messages and clear queue
-                messages = list(entry_store["messages"])
-                entry_store["messages"].clear()
+                # HTTP Polling or History Backlog: return the last up to 50 messages
+                messages = list(entry_store.get("messages", []))
                 return web.json_response(
                     {"messages": messages, "count": len(messages)},
                     headers={"Access-Control-Allow-Origin": "*"},
