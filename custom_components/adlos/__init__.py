@@ -14,7 +14,9 @@ from .const import (
     CONF_CHANNEL_NAME,
     CONF_PUBLIC_URL,
     CONF_SECRET_TOKEN,
+    CONF_SERVER_URL,
     CONF_WEBHOOK_ID,
+    DEFAULT_SERVER_URL,
     DOMAIN,
     EVENT_ADLOS_COMMAND,
 )
@@ -44,6 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_SECRET_TOKEN: secret_token,
         CONF_PUBLIC_URL: entry.data.get(CONF_PUBLIC_URL, ""),
         CONF_CHANNEL_NAME: entry.data.get(CONF_CHANNEL_NAME, "Adlos"),
+        CONF_SERVER_URL: entry.data.get(CONF_SERVER_URL, DEFAULT_SERVER_URL),
         "subscribers": set(),
         "messages": [],
     }

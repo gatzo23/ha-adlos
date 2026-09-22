@@ -30,7 +30,9 @@ from .const import (
     CONF_CHANNEL_NAME,
     CONF_PUBLIC_URL,
     CONF_SECRET_TOKEN,
+    CONF_SERVER_URL,
     CONF_WEBHOOK_ID,
+    DEFAULT_SERVER_URL,
     DOMAIN,
 )
 
@@ -67,6 +69,7 @@ class AdlosNotifyEntity(NotifyEntity):
             "entry_type": "service",
         }
         self.public_url = entry.data.get(CONF_PUBLIC_URL, "")
+        self.server_url = entry.data.get(CONF_SERVER_URL, DEFAULT_SERVER_URL)
         self.webhook_id = entry.data.get(CONF_WEBHOOK_ID, "")
         self.secret_token = entry.data.get(CONF_SECRET_TOKEN, "")
 
@@ -102,6 +105,7 @@ class AdlosNotificationService(BaseNotificationService):
         self.hass = hass
         self.entry_id = entry_data.get("entry_id", "") if isinstance(entry_data, dict) else ""
         self.public_url = entry_data.get(CONF_PUBLIC_URL, "") if isinstance(entry_data, dict) else ""
+        self.server_url = entry_data.get(CONF_SERVER_URL, DEFAULT_SERVER_URL) if isinstance(entry_data, dict) else DEFAULT_SERVER_URL
         self.webhook_id = entry_data.get(CONF_WEBHOOK_ID, "") if isinstance(entry_data, dict) else ""
         self.secret_token = entry_data.get(CONF_SECRET_TOKEN, "") if isinstance(entry_data, dict) else ""
 
@@ -216,22 +220,37 @@ class AdlosNotificationService(BaseNotificationService):
                             except Exception as err:
                                 _LOGGER.debug("Error writing to SSE subscriber: %s", err)
 
-        # 3. Post REST payload directly to configured PocketBase / REST push gateway endpoint
+        # 3. Post REST payload directly to configured PocketBase database endpoint
         session = async_get_clientsession(self.hass)
+        server_url = (getattr(self, "server_url", None) or DEFAULT_SERVER_URL).strip()
         raw_base_url = (self.public_url or "").strip()
 
-        if not raw_base_url:
-            _LOGGER.debug("ADLOS_REST: No public_url configured, skipping REST post")
-            return
+        candidate_urls = []
 
-        if "records" in raw_base_url:
-            target_url = raw_base_url
-        elif raw_base_url.startswith(("http://", "https://")):
-            target_url = f"{raw_base_url.rstrip('/')}/api/collections/messages/records"
+        # Target PocketBase messages collection endpoint from configured database server
+        if "records" in server_url:
+            candidate_urls.append(server_url)
+        elif server_url.startswith(("http://", "https://")):
+            candidate_urls.append(f"{server_url.rstrip('/')}/api/collections/messages/records")
         else:
-            target_url = f"https://{raw_base_url.rstrip('/')}/api/collections/messages/records"
+            candidate_urls.append(f"https://{server_url.rstrip('/')}/api/collections/messages/records")
 
-        candidate_urls = [target_url]
+        # If public_url is explicitly configured as a PocketBase endpoint, include it as well
+        if raw_base_url and ("records" in raw_base_url or "pb." in raw_base_url or "pocket" in raw_base_url):
+            if "records" in raw_base_url:
+                custom_pb = raw_base_url
+            elif raw_base_url.startswith(("http://", "https://")):
+                custom_pb = f"{raw_base_url.rstrip('/')}/api/collections/messages/records"
+            else:
+                custom_pb = f"https://{raw_base_url.rstrip('/')}/api/collections/messages/records"
+            if custom_pb not in candidate_urls:
+                candidate_urls.insert(0, custom_pb)
+
+        default_pb_endpoint = f"{DEFAULT_SERVER_URL.rstrip('/')}/api/collections/messages/records"
+        if default_pb_endpoint not in candidate_urls:
+            candidate_urls.append(default_pb_endpoint)
+
+        target_url = candidate_urls[0]
 
         headers = {}
         if self.secret_token:

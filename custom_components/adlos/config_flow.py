@@ -13,8 +13,10 @@ from .const import (
     CONF_CHANNEL_NAME,
     CONF_PUBLIC_URL,
     CONF_SECRET_TOKEN,
+    CONF_SERVER_URL,
     CONF_WEBHOOK_ID,
     DEFAULT_NAME,
+    DEFAULT_SERVER_URL,
     DOMAIN,
 )
 from .qr_generator import generate_qr_data_uri
@@ -31,6 +33,7 @@ class AdlosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._channel_name = DEFAULT_NAME
         self._public_url = ""
+        self._server_url = DEFAULT_SERVER_URL
         self._webhook_id = ""
         self._secret_token = ""
         self._pairing_uri = ""
@@ -42,6 +45,7 @@ class AdlosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._channel_name = user_input.get(CONF_CHANNEL_NAME, DEFAULT_NAME)
             self._public_url = user_input.get(CONF_PUBLIC_URL, "").rstrip("/")
+            self._server_url = user_input.get(CONF_SERVER_URL, DEFAULT_SERVER_URL).rstrip("/")
 
             if not self._public_url:
                 try:
@@ -74,6 +78,7 @@ class AdlosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Optional(CONF_CHANNEL_NAME, default=DEFAULT_NAME): str,
                 vol.Optional(CONF_PUBLIC_URL, default=detected_url): str,
+                vol.Optional(CONF_SERVER_URL, default=DEFAULT_SERVER_URL): str,
             }
         )
 
@@ -92,6 +97,7 @@ class AdlosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={
                     CONF_CHANNEL_NAME: self._channel_name,
                     CONF_PUBLIC_URL: self._public_url,
+                    CONF_SERVER_URL: self._server_url,
                     CONF_WEBHOOK_ID: self._webhook_id,
                     CONF_SECRET_TOKEN: self._secret_token,
                 },

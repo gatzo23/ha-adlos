@@ -6,7 +6,8 @@
         "description": "Establish a direct 2-way messaging link between your Adlos App and Home Assistant.",
         "data": {
           "channel_name": "Channel Name in Adlos (e.g. Home Assistant)",
-          "public_url": "Public Home Assistant URL (e.g. https://your-ha.duckdns.org)"
+          "public_url": "Public Home Assistant URL (e.g. https://your-ha.duckdns.org)",
+          "server_url": "Adlos PocketBase Server URL (Default: https://pb.adlos.de)"
         }
       },
       "qr_code": {

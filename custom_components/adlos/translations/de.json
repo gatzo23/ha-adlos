@@ -6,7 +6,8 @@
         "description": "Erstelle eine direkte 2-Wege-Verbindung zwischen deiner Adlos App und Home Assistant.",
         "data": {
           "channel_name": "Kanalname in Adlos (z.B. Home Assistant)",
-          "public_url": "Öffentliche Home Assistant URL (z.B. https://dein-ha.duckdns.org)"
+          "public_url": "Öffentliche Home Assistant URL (z.B. https://dein-ha.duckdns.org)",
+          "server_url": "Adlos PocketBase Server-URL (Standard: https://pb.adlos.de)"
         }
       },
       "qr_code": {
